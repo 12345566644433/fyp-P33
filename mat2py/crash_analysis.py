@@ -119,15 +119,15 @@ def compute_relative_metrics(obj_positions, obj_velocities, tgt_positions, tgt_v
     return CurrentRange, CurrentRangeRate
 
 # 主函数
-def crash_analysis(ObjSat,TgtSat,ConjStartJulian):
+def crash_analysis(ObjSat,TgtSat,ConjStartJulian,PropTimeStep):
     # 设置时间范围
     ConjStartDate = datetime(2024, 11, 15)
     ConjEndDate = datetime(2024, 11, 16)
     timeVec = initialize_time_vector(ConjStartDate, ConjEndDate, PropTimeStep)
     
     # 初始化对象和目标卫星
-    objSatObjects = initialize_satellite(ObjSat,ConjStartJulian)
-    tgtSatObjects = initialize_satellite(TgtSat,ConjStartJulian)
+    objSatObjects = initialize_satellites(ObjSat,ConjStartJulian)
+    tgtSatObjects = initialize_satellites(TgtSat,ConjStartJulian)
     
     # 计算对象卫星的位置和速度
     obj_positions, obj_velocities = compute_position_velocity(objSatObjects)
@@ -201,4 +201,4 @@ def init_vector_matrix(objNUm,tgtNum):
         objCurrentRangeRate = np.zeros(len(objObjIdxVector))
     return ObjPropCond,TgtPropCond,CurrentRange,ConjFlag,objCurrentRange
 if __name__ == "__main__":
-    main()
+    crash_analysis()
