@@ -42,22 +42,26 @@ def initialize_satellites(ObjSat, ConjStartJulian):
         
         # 计算初始儒略日
         initial_julian = satrec.jdsatepoch
-        initial_epoch = initial_julian - jday(1950, 1, 1, 0, 0, 0)
+        jd, fr = jday(1950, 1, 1, 0, 0, 0)
+        initial_epoch = initial_julian - (jd+fr)
         
         # 计算时间偏移量（单位：分钟）
         offset = (ConjStartJulian - initial_julian) * 1440  # 转换为分钟
-
+        # print(f"Initial Julian: {initial_julian}")
+        # print(f"Target Julian (jd): {jd}")
+        # print(f"Time offset (days): {offset / 1440}")
+        # print(f"Conjunction Start Julian: {ConjStartJulian}")
         # 使用 SGP4 传播器计算当前位置和速度
-        e, r, v = satrec.sgp4(offset / 1440)  # 将偏移时间转换为天
+        e, p, v = satrec.sgp4(jd, offset / 1440)  # 将偏移时间转换为天
         if e != 0:
             raise ValueError(f"SGP4 传播失败，错误代码: {e}")
         
-        objpnow[ii, :] = r
+        objpnow[ii, :] = p
         objvnow[ii, :] = v
 
         # 计算 uvw 矩阵（径向、轨道和横向单位向量）
-        or_vec = r / np.linalg.norm(r)
-        h = np.cross(r, v)  # 角动量向量
+        or_vec = p / np.linalg.norm(p)
+        h = np.cross(p, v)  # 角动量向量
         oh_vec = h / np.linalg.norm(h)
         ot_vec = np.cross(oh_vec, or_vec)
         ot_vec = ot_vec / np.linalg.norm(ot_vec)
@@ -73,7 +77,7 @@ def initialize_satellites(ObjSat, ConjStartJulian):
             "initial_epoch": initial_epoch,
             "initial_julian": initial_julian,
             "offset": offset,
-            "position": r,
+            "position": p,
             "velocity": v,
             "or_vec": or_vec,
             "ot_vec": ot_vec,
@@ -82,123 +86,121 @@ def initialize_satellites(ObjSat, ConjStartJulian):
     
     return sat_objects, objpnow, objvnow, CurrentOr, CurrentOt, CurrentOh
 
-# 计算卫星位置和速度
-def compute_position_velocity(sat_objects):
-    positions = []
-    velocities = []
-    for sat in sat_objects:
-        satrec = sat['satrec']
-        e, r, v = satrec.sgp4(sat['offset'] / 1440)  # offset 转换为天
-        if e == 0:
-            positions.append(np.array(r))
-            velocities.append(np.array(v))
-        else:
-            positions.append(np.zeros(3))
-            velocities.append(np.zeros(3))
-    return np.array(positions), np.array(velocities)
 
-# 计算相对位置和速度
-def compute_relative_metrics(obj_positions, obj_velocities, tgt_positions, tgt_velocities):
-    tgtNum, objNum = len(tgt_positions), len(obj_positions)
-    RelativePx, RelativePy, RelativePz = np.zeros((tgtNum, objNum)), np.zeros((tgtNum, objNum)), np.zeros((tgtNum, objNum))
-    RelativeVx, RelativeVy, RelativeVz = np.zeros((tgtNum, objNum)), np.zeros((tgtNum, objNum)), np.zeros((tgtNum, objNum))
-    CurrentRange = np.zeros((tgtNum, objNum))
-    CurrentRangeRate = np.zeros((tgtNum, objNum))
+def compute_relative_positions(TgtSat, objpnow, objvnow, ConjStartJulian):
+    """
+    计算目标卫星与物体之间的相对位置、速度、径向速度和距离
+    """
+    tgtNum = len(TgtSat)
+    objNum = len(objpnow)
     
-    for i in range(tgtNum):
-        for k in range(objNum):
-            dr = tgt_positions[i] - obj_positions[k]
-            dv = tgt_velocities[i] - obj_velocities[k]
-            rv = np.dot(dr, dv)
-            rr = np.linalg.norm(dr)
-            
-            RelativePx[i, k], RelativePy[i, k], RelativePz[i, k] = dr
-            RelativeVx[i, k], RelativeVy[i, k], RelativeVz[i, k] = dv
-            CurrentRange[i, k] = rr
-            CurrentRangeRate[i, k] = rv / rr if rr != 0 else 0
-    return CurrentRange, CurrentRangeRate
-
-# 主函数
-def crash_analysis(ObjSat,TgtSat,ConjStartJulian,PropTimeStep):
-    # 设置时间范围
-    ConjStartDate = datetime(2024, 11, 15)
-    ConjEndDate = datetime(2024, 11, 16)
-    timeVec = initialize_time_vector(ConjStartDate, ConjEndDate, PropTimeStep)
-    
-    # 初始化对象和目标卫星
-    objSatObjects = initialize_satellites(ObjSat,ConjStartJulian)
-    tgtSatObjects = initialize_satellites(TgtSat,ConjStartJulian)
-    
-    # 计算对象卫星的位置和速度
-    obj_positions, obj_velocities = compute_position_velocity(objSatObjects)
-    
-    # 计算目标卫星的位置和速度
-    tgt_positions, tgt_velocities = compute_position_velocity(tgtSatObjects)
-    
-    # 计算相对位置和速度
-    CurrentRange, CurrentRangeRate = compute_relative_metrics(obj_positions, obj_velocities, tgt_positions, tgt_velocities)
-    
-    print("相对距离 (km):")
-    print(CurrentRange)
-    print("相对速度变化率 (km/s):")
-    print(CurrentRangeRate)
-
-# 初始化向量和矩阵
-def init_vector_matrix(objNUm,tgtNum):
-    objNumVec = np.arange(1, objNUm + 1)  # 对象卫星的索引向量
-    tgtNumVec = np.arange(1, tgtNum + 1)  # 目标卫星的索引向量
-
-    # 传播条件（如果为 0，则不传播，主要用于 Try-Catch 方法）
-    ObjPropCond = np.ones(objNUm, dtype=int)
-    TgtPropCond = np.ones(tgtNum, dtype=int)
-
-    # 初始化相对距离和速度的矩阵
-    NextRange = np.zeros((tgtNum, objNUm))
-    NextRangeRate = np.zeros((tgtNum, objNUm))
-    CurrentRange = np.zeros((tgtNum, objNUm))
-    CurrentRangeRate = np.zeros((tgtNum, objNUm))
-
-    # 碰撞分析标志矩阵
-    ConjFlag = np.ones((tgtNum, objNUm), dtype=int)
-    objConjFlag = np.ones(objNUm, dtype=int)
-
-    # 初始化碰撞概率和碰撞距离矩阵
-    ConjProb = np.zeros((tgtNum, objNUm))
-    ConjDistance = np.zeros((tgtNum, objNUm))
-
-    # 初始化当前和下一个时间步长的卫星位置和速度
+    # 初始化存储变量
     tgtpnow = np.zeros((tgtNum, 3))
     tgtvnow = np.zeros((tgtNum, 3))
-    objpnow = np.zeros((objNUm, 3))
-    objvnow = np.zeros((objNUm, 3))
-    tgtpnext = np.zeros((tgtNum, 3))
-    tgtvnext = np.zeros((tgtNum, 3))
-    objpnext = np.zeros((objNUm, 3))
-    objvnext = np.zeros((objNUm, 3))
+    RelativePx = np.zeros((tgtNum, objNum))
+    RelativePy = np.zeros((tgtNum, objNum))
+    RelativePz = np.zeros((tgtNum, objNum))
+    RelativeVx = np.zeros((tgtNum, objNum))
+    RelativeVy = np.zeros((tgtNum, objNum))
+    RelativeVz = np.zeros((tgtNum, objNum))
+    CurrentRangeRate = np.zeros((tgtNum, objNum))
+    CurrentRange = np.zeros((tgtNum, objNum))
+    
+    # 遍历每一个目标卫星
+    for ii in range(tgtNum):
+        # 初始化卫星数据
+        sattgt = {}
+        sattgt['struc'] = {}
+        sattgt['struc']['satnum'] = TgtSat[ii]['CatID']
+        sattgt['Name'] = TgtSat[ii]['Name']
+        sattgt['sattle'] =  Satrec.twoline2rv(TgtSat[ii]['line2'], TgtSat[ii]['line3'])
+        
+        # 计算初始纪元时间
+        sattgt['initialjulian'] = sattgt['sattle'].jdsatepoch
+        sattgt['initialepoch'] = sattgt['initialjulian'] - jday(1950, 1, 0, 0, 0, 0)
+        
+        # 时间偏移（分钟）
+        sattgt['offset'] = (ConjStartJulian - sattgt['initialjulian']) * 1440
+        
+        # 初始化 SGP4 结构
+        sattgt['struc'] = sgp4init(
+            sattgt['sattle'],
+            sattgt['sattle'].bstar,
+            sattgt['sattle'].ecco,
+            sattgt['initialepoch'],
+            sattgt['sattle'].argpo,
+            sattgt['sattle'].inclo,
+            sattgt['sattle'].mo,
+            sattgt['sattle'].no_kozai,
+            sattgt['sattle'].nodeo
+        )
+        
+        # 使用 SGP4 计算当前位置和速度
+        e, p, v = sattgt['sattle'].sgp4(sattgt['offset'] / 1440.0)
+        tgtpnow[ii, :] = p
+        tgtvnow[ii, :] = v
+        
+        # 计算相对位置和速度
+        for kk in range(objNum):
+            drtemp = tgtpnow[ii, :] - objpnow[kk, :]
+            dvtemp = tgtvnow[ii, :] - objvnow[kk, :]
+            rv = np.sum(drtemp * dvtemp)
+            rr = np.linalg.norm(drtemp)
+            
+            # 存储相对位置
+            RelativePx[ii, kk] = drtemp[0]
+            RelativePy[ii, kk] = drtemp[1]
+            RelativePz[ii, kk] = drtemp[2]
+            
+            # 存储相对速度
+            RelativeVx[ii, kk] = dvtemp[0]
+            RelativeVy[ii, kk] = dvtemp[1]
+            RelativeVz[ii, kk] = dvtemp[2]
+            
+            # 计算当前的径向速度和距离
+            CurrentRangeRate[ii, kk] = rv / rr if rr != 0 else 0
+            CurrentRange[ii, kk] = rr
 
-    # ============================================================
-    # 设置对象之间的碰撞分析
-    if objNUm > 1:
-        icount = 0
-        objObjIdxVector = []
-        objTgtIdxVector = []
+    return RelativePx, RelativePy, RelativePz, RelativeVx, RelativeVy, RelativeVz, CurrentRangeRate, CurrentRange
 
-        # 生成对象卫星对之间的索引
-        for obji in range(objNUm - 1):
-            for objj in range(obji + 1, objNUm):
-                objObjIdxVector.append(obji)
-                objTgtIdxVector.append(objj)
-                icount += 1
 
-        # 将索引转换为 numpy 数组
-        objObjIdxVector = np.array(objObjIdxVector)
-        objTgtIdxVector = np.array(objTgtIdxVector)
+def compute_obj_relative(objpnow, objvnow):
+    """
+    计算物体之间的相对距离和相对径向速度
+    """
+    objNum = len(objpnow)
+    
+    # 如果物体数量大于 1，才计算相对距离和径向速度
+    if objNum > 1:
+        objp = objpnow.T  
+        objv = objvnow.T  
 
-        # 初始化对象之间的相对距离和速度变化率矩阵
-        objNextRange = np.zeros(len(objObjIdxVector))
-        objCurrentRange = np.zeros(len(objObjIdxVector))
-        objNextRangeRate = np.zeros(len(objObjIdxVector))
-        objCurrentRangeRate = np.zeros(len(objObjIdxVector))
-    return ObjPropCond,TgtPropCond,CurrentRange,ConjFlag,objCurrentRange
-if __name__ == "__main__":
-    crash_analysis()
+        objtemprange = []
+        objtemprangerate = []
+
+        # 遍历所有物体对
+        for obji in range(objNum - 1):
+            # 计算相对位置向量
+            objdp = objp[:, obji + 1:] - objp[:, [obji]]
+            # 计算相对速度向量
+            objdv = objv[:, obji + 1:] - objv[:, [obji]]
+
+            # 计算相对距离（欧几里得范数）
+            ranges = np.linalg.norm(objdp, axis=0)
+            objtemprange.extend(ranges)
+
+            # 计算相对径向速度
+            rangerates = np.sum(objdp * objdv, axis=0)
+            objtemprangerate.extend(rangerates)
+
+        # 转换为 NumPy 数组
+        objtemprange = np.array(objtemprange)
+        objtemprangerate = np.array(objtemprangerate)
+        
+        # 计算当前的距离和径向速度
+        objCurrentRange = objtemprange
+        objCurrentRangeRate = np.sign(objtemprangerate / objtemprange)
+        
+        return objCurrentRange, objCurrentRangeRate
+
+    
