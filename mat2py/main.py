@@ -1,6 +1,10 @@
 import numpy as np
 import datetime
 from scipy.io import loadmat
+from download_TLEs_data import download_tle
+from setup_TLEfiles import *
+from crash_analysis import *
+import ConjunctionReportOutput
 # 定义全局变量
 d2r = np.pi / 180
 mu = 398600.8
@@ -27,10 +31,9 @@ mgrav = None
 j2 = None
 ccoef = None
 scoef = None
+
 # ========= Evaluation Target ==========
 ObjCatID = np.array([['16493'], ['49256'], ['37484'], ['04737'], ['43910']])
-
-# 转换日期格式
 ConjStartDate = datetime.datetime(2024, 10, 7)
 ConjEndDate = datetime.datetime(2024, 10, 10, 12)
 DateTrack = ConjStartDate.replace(hour=0, minute=0, second=0)
@@ -53,9 +56,24 @@ objNum = ObjCatID.shape[0]
 
 # 文件名
 objfile =read_tle("objtle.tle")
-tgtfile = read_tle('tgttle.tle')
-tempfile = read_tle('temptle.tle')
 fmnvr = read_text_file('satmaneuver.txt')
 fmaneverdata = read_text_file('satmaneuver20220311.txt')
 data = loadmat('PropulsionDataNewSet.mat')
 reportfile = loadmat('cdm.dat')
+smaThresHold = 50
+
+objNum,tgtNum,ObjSat,TgtSat=setup_TLEfiles()
+
+# 初始化参数
+PropTimeStep = 5  # in minutes
+ConjunctionReportOutput(0,reportfile)
+thres = 0.001 / 60  # 100 milliseconds
+maxcount = 50
+dxscalar = np.array([1, 1, 1]) / 60  # one second slope
+tmin = np.zeros((tgtNum, objNum))
+tmax = np.ones((tgtNum, objNum)) * PropTimeStep
+minDisThres = 5.0  # Threshold to report the data, in km
+analysisThres = 3000  # Upper limit for conjunction analysis
+ConjRangeThres = 1000  # For predicted range
+
+timeVec=initialize_time_vector(ConjStartDate, ConjEndDate, PropTimeStep)
