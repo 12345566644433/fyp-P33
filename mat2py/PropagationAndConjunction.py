@@ -1,7 +1,6 @@
 import numpy as np
 import math
 from datetime import datetime, timedelta
-import numpy as np
 from sgp4.api import Satrec, jday
 from main import objNum, ObjPropCond, PropStartjday, PropTimeStep, satobj, tsince
 from scipy.integrate import odeint
