@@ -117,26 +117,15 @@ def compute_relative_positions(TgtSat, objpnow, objvnow, ConjStartJulian):
         
         # 计算初始纪元时间
         sattgt['initialjulian'] = sattgt['sattle'].jdsatepoch
-        sattgt['initialepoch'] = sattgt['initialjulian'] - jday(1950, 1, 0, 0, 0, 0)
+        jd, fr = jday(1950, 1, 1, 0, 0, 0)
+        sattgt['initialepoch'] = sattgt['initialjulian'] - (jd+fr)
         
         # 时间偏移（分钟）
         sattgt['offset'] = (ConjStartJulian - sattgt['initialjulian']) * 1440
-        
-        # 初始化 SGP4 结构
-        sattgt['struc'] = sgp4init(
-            sattgt['sattle'],
-            sattgt['sattle'].bstar,
-            sattgt['sattle'].ecco,
-            sattgt['initialepoch'],
-            sattgt['sattle'].argpo,
-            sattgt['sattle'].inclo,
-            sattgt['sattle'].mo,
-            sattgt['sattle'].no_kozai,
-            sattgt['sattle'].nodeo
-        )
-        
+             
         # 使用 SGP4 计算当前位置和速度
-        e, p, v = sattgt['sattle'].sgp4(sattgt['offset'] / 1440.0)
+        tsince = sattgt['offset'] / 1440.0  # 计算时间偏移量
+        e, p, v = sattgt['sattle'].sgp4(jd,tsince) 
         tgtpnow[ii, :] = p
         tgtvnow[ii, :] = v
         
