@@ -9,11 +9,11 @@ from numpy.linalg import norm
 from sgp4 import sgp4
 from sgp4.ext import satdata
 from scipy.integrate import solve_ivp
-from main import *
-from main import tattgt
+from main import CurrentOh, CurrentOr,CurrentOt,RelativePx,RelativePy,RelativePz,RelativeVx,RelativeVy,RelativeVz
 from sgp4.api import Satrec, WGS72
 from sgp4.io import twoline2rv
 from scipy.integrate import ode45  # Python 需要使用 scipy 或其他库进行ODE求解
+from main import tattgt
 
 # 常量定义
 flat = 1 / 298.257  # 地球的扁率
