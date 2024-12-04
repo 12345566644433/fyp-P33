@@ -4,9 +4,9 @@ import time
 from sgp4.api import jday
 import math
 
-tempfile = 'temptle.tle'
-objfile = 'objects.tle'
-tgtfile = 'targets.tle'
+tempfile = './temptle.tle'
+objfile = './objects.tle'
+tgtfile = './targets.tle'
 
 
 mu = 398600.8 # 地球标准重力参数 (km^3/s^2)

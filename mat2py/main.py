@@ -77,11 +77,11 @@ ObjCatID = np.array([['16493'], ['49256'], ['37484'], ['04737'], ['43910']])
 objNum=len(ObjCatID)
 
 # 文件名
-tempfile="temptle.tle"
-objfile ="objtle.tle"
-fmnvr = read_text_file('satmaneuver.txt')
-data = loadmat('PropulsionDataNewSet.mat')
-fmaneverdata = 'eop_data.txt'
+tempfile="./temptle.tle"
+objfile ="./objtle.tle"
+fmnvr = read_text_file('./satmaneuver.txt')
+data = loadmat('./PropulsionDataNewSet.mat')
+fmaneverdata = './eop_data.txt'
 # reportfile = loadmat('cdm.dat')
 smaThresHold = 50
 
