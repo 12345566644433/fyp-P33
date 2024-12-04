@@ -1,5 +1,5 @@
 import numpy as np
-from sgp4.api import Satrec, jday
+from sgp4.api import Satrec, jday, SatrecArray
 from datetime import datetime
 
 # 初始化时间向量
@@ -122,9 +122,10 @@ def compute_relative_positions(TgtSat, objpnow, objvnow, ConjStartJulian):
         
         # 时间偏移（分钟）
         sattgt['offset'] = (ConjStartJulian - sattgt['initialjulian']) * 1440
-                
+             
         # 使用 SGP4 计算当前位置和速度
-        e, p, v = sattgt['sattle'].sgp4(jd,sattgt['offset'] / 1440.0)
+        tsince = sattgt['offset'] / 1440.0  # 计算时间偏移量
+        e, p, v = sattgt['sattle'].sgp4(jd,tsince) 
         tgtpnow[ii, :] = p
         tgtvnow[ii, :] = v
         

@@ -1,5 +1,5 @@
 import numpy as np
-from download_TLEs_data import *
+from download_TLEs_data import download_tle
 import time 
 from sgp4.api import jday
 import math
@@ -29,7 +29,7 @@ def remove_blank_lines(file_path):#移除原文件空行
         print(f"发生错误: {e}")
 
 
-def process_satellite_tle(tempfile, objfile, ObjCatID):#生成objtle.tle
+def process_satellite_tle(tempfile, objfile, ObjCatID):
     objNum = len(ObjCatID)  
     ObjSat = [{} for _ in range(objNum)] 
     IsObj = 0 
@@ -197,5 +197,3 @@ def init_vector_matrix(objNUm,tgtNum):
     return ObjPropCond,TgtPropCond,CurrentRange,ConjFlag,objCurrentRange
 
 
-if __name__=="__main__":
-    tgtNum,TgtSat=setup_TLEfiles()
