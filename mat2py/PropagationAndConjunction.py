@@ -14,6 +14,7 @@ from sgp4.api import Satrec, WGS72
 from sgp4.io import twoline2rv
 from scipy.integrate import ode45  # Python 需要使用 scipy 或其他库进行ODE求解
 from main import tattgt
+from main import *
 
 # 常量定义
 flat = 1 / 298.257  # 地球的扁率
