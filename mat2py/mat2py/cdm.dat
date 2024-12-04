@@ -1,3 +1,0 @@
-Date,Time,Object Satellite,Object CatID,Object Days Since Epoch,Target Satellite, Target CatID,Target Days Since Epoch,Minimum Distance (meter),Relative Speed (km/s),Probability of Collision
-07-Oct-2024,08:31:57.590,THORAD AGENA D DEB,04737,-3.4632,FENGYUN 1C DEB,30765,-2.7134,3503.8464,10.35141,0.00000343
-07-Oct-2024,10:17:31.655,COSMOS 2251 DEB,37484,0.0380,NOAA 16 DEB,42358,-2.8116,2218.8299,10.32054,0.00000434
