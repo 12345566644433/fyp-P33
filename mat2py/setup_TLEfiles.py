@@ -1,199 +1,109 @@
 import numpy as np
 from download_TLEs_data import download_tle
-import time 
-from sgp4.api import jday
 import math
+from tools.date_trans import calculate_jday
 
-tempfile = './temptle.tle'
-objfile = './objects.tle'
-tgtfile = './targets.tle'
+tempfile = 'temptle.tle'
 
-
-mu = 398600.8 # 地球标准重力参数 (km^3/s^2)
-smaThresHold = 50  # 半长轴阈值 (可调整)
-ConjStartJulian = 2451545.0  # 2000年1月1日的儒略日
-
-
-
-def remove_blank_lines(file_path):#移除原文件空行
-    try:
-        with open(file_path, 'r') as file:
-            lines = file.readlines()
-        non_empty_lines = [line for line in lines if line.strip()]
-        with open(file_path, 'w') as file:
-            file.writelines(non_empty_lines)
-        print(f"空行已删除，文件 '{file_path}' 已更新。")
-    except FileNotFoundError:
-        print(f"错误: 文件 '{file_path}' 未找到。")
-    except Exception as e:
-        print(f"发生错误: {e}")
-
-
-def process_satellite_tle(tempfile, objfile, ObjCatID):
-    objNum = len(ObjCatID)  
-    ObjSat = [{} for _ in range(objNum)] 
-    IsObj = 0 
-    with open(tempfile, 'r') as fid, open(objfile, 'w') as fobj:
-        l1 = fid.readline() 
+def generate_objSat_from_temptle(tempfile):
+    mu = 398600.8 # 地球标准重力参数 (km^3/s^2)
+    objfile = 'objtle.tle'
+    ObjCatID = np.array([['16493'], ['49256'], ['37484'], ['04737'], ['43910']])# object Sat,can be changed
+    objNum = len(ObjCatID)
+    ObjSat_list = [{} for _ in range(objNum)]
+    for objIdx in range(objNum):
+        ObjSat_list[objIdx]["CatID"] = ObjCatID[objIdx][0]
+    objsma = [0.0] * objNum
+    with open(tempfile ,"r") as origin_Satfile:
+        l1 = origin_Satfile.readline().strip()
         while l1:
-            l2 = fid.readline() 
-            l3 = fid.readline() 
-            tempCatID = l2[2:7]  
-            tempSatName = l1[2:].strip()
+            l2 = origin_Satfile.readline().strip()
+            l3 = origin_Satfile.readline().strip()
+            tempCatID = l2[2:7]
+            tempSatName = l1[2:]
+
             for objIdx in range(objNum):
-                ObjSat[objIdx]['CatID'] = ObjCatID[objIdx, 0] 
-                if ObjCatID[objIdx, 0] == tempCatID:                  
-                    ObjSat[objIdx]['Name'] = tempSatName
-                    ObjSat[objIdx]['line1'] = l1.strip()
-                    ObjSat[objIdx]['line2'] = l2.strip()
-                    ObjSat[objIdx]['line3'] = l3.strip()
-                    tempMeanMotion = float(l3[52:63].strip())  
-                    tempn = tempMeanMotion * 2 * np.pi / 86400  
-                    tempSMA = (mu / tempn**2) ** (1/3)  
-                    ObjSat[objIdx]['SMA'] = tempSMA
-                    ObjSat[objIdx]['ecc']=float('0.' + l3[26:33])
-                    IsObj += 1
-                    fobj.write(f"{l1[2:].strip()}\n")
-                    fobj.write(f"{l2.strip()}\n")
-                    fobj.write(f"{l3.strip()}\n")
+                if ObjSat_list[objIdx]["CatID"] == tempCatID:
+                    ObjSat_list[objIdx]["Name"] = tempSatName
+                    ObjSat_list[objIdx]["Line1"] = l1
+                    ObjSat_list[objIdx]["Line2"] = l2
+                    ObjSat_list[objIdx]["Line3"] = l3
 
-            l1 = fid.readline() 
-    ObjSat = [sat for sat in ObjSat if 'Name' in sat and sat['Name']]
-    return ObjSat, IsObj
+                    tempMeanMotion = float(l3[52:63])
+                    tempn = tempMeanMotion * 2 * math.pi / 86400
+                    tempSMA = (mu / tempn**2) ** (1/3)
+                    objsma[objIdx] = tempSMA
 
-# 解析 TLE 数据
-def parse_tle(filepath):
-    satellites = []
-    with open(filepath, 'r') as f:
-        while True:
-            l1 = f.readline().strip()
-            if not l1:
-                break
-            l2 = f.readline().strip()
-            l3 = f.readline().strip()
-            if not (l1.startswith('0') and l2.startswith('1') and l3.startswith('2')):
-                continue
-            cat_id = l2[2:7].strip()
-            name = l1[2:].strip()
-            ecc = float(f"0.{l3[26:33]}")
-            mean_motion = float(l3[52:63].strip())
-            # 计算半长轴 (SMA)
-            temp_n = mean_motion * 2 * np.pi / 86400 
-            temp_sma = (mu / temp_n**2)**(1/3)  
+            l1 = origin_Satfile.readline().strip()
             
-            satellites.append({
-                "CatID": cat_id,
-                "Name": name,
-                "line1": l1,
-                "line2": l2,
-                "line3": l3,
-                "eccentricity": ecc,
-                "SMA": temp_sma,
-            })
-    return satellites
-
-# 判断卫星是否符合碰撞分析条件
-def qualify_satellite(sat, objsma, smaThresHold):
-    temp_sma = sat["SMA"]
-    ecc = sat["eccentricity"]
-    if (temp_sma <= (max(objsma) + smaThresHold) and 
-        temp_sma >= (min(objsma) - smaThresHold)):
-        return True
-    if (((1 + ecc) * temp_sma >= max(objsma)) and 
-        ((1 - ecc) * temp_sma <= min(objsma))):
-        return True
-    return False
-
-# 生成目标卫星文件targets.tle
-def generate_target_file(satellites, objsma):
-    targets = []
-    with open(tgtfile, 'w') as ftgt:
-        for sat in satellites:
-            if qualify_satellite(sat, objsma, smaThresHold):
-                ftgt.write(f"{sat['line1'][2:]}\n")
-                ftgt.write(f"{sat['line2']}\n")
-                ftgt.write(f"{sat['line3']}\n")
-                targets.append(sat)
-    print(f"目标卫星已保存到 {tgtfile}")
-    return targets,len(targets)
-
-def setup_TLEfiles():
-    if not tempfile:
-        download_tle()
-    # 解析已下载的 TLE 数据
-    remove_blank_lines(tempfile)
-    TmpSat = parse_tle(tempfile)
-    # 提取对象卫星的数据
-    objsma = [sat['SMA'] for sat in TmpSat]
-    # 生成目标卫星文件
-    starttime=time.time()
-    TgtSat,tgtNum = generate_target_file(TmpSat, objsma)
-    endtime=time.time()
-    cost_time=endtime-starttime
-    print(f"处理完成，总共找到 {len(TgtSat)} 个目标卫星用于碰撞分析")
-    print(f"共消耗{cost_time}s处理数据")
-    return tgtNum,TgtSat
+    with open(objfile, 'w') as f:
+        for objIdx in range(objNum):
+            f.write(f"{ObjSat_list[objIdx]['Line1'][2:]}")
+            f.write(f"{ObjSat_list[objIdx]['Line2']}\n")
+            f.write(f"{ObjSat_list[objIdx]['Line3']}\n")
+    return ObjSat_list, objsma
 
 
+def generate_tarSat_from_temptle(tempfile, ObjSat_list, objsma):
+    mu = 398600.8 # 地球标准重力参数 (km^3/s^2)
+    smaThresHold = 50  # 半长轴阈值 (可调整)
+    ConjStartJulian = 2451545.0  # 2000年1月1日的儒略日
+    target_file = "targets.tle"
+    tgtNum = 0
+    TgtSat = []
+    objNum = len(ObjSat_list)
+    with open(tempfile, 'r') as fid, open(target_file, 'w') as ftgt:
+        l1 = fid.readline().strip()
+        while l1:
+            l2 = fid.readline().strip()
+            l3 = fid.readline().strip()
+            tempCatID = l2[2:7]
+            tempSatName = l1[2:]
 
+            tempecc = float(f"0.{l3[26:33]}")
+            tempMeanMotion = float(l3[52:63])
+            tempn = tempMeanMotion * 2 * math.pi / 86400
+            tempSMA = (mu / tempn**2) ** (1/3)
 
+            # 检查是否符合条件
+            Isqualify = 0
+            if (tempSMA <= (max(objsma) + smaThresHold)) and (tempSMA >= (min(objsma) - smaThresHold)):
+                Isqualify = 1
+            if ((1 + tempecc) * tempSMA >= (max(objsma) + smaThresHold)) and ((1 - tempecc) * tempSMA <= min(objsma)):
+                Isqualify = 1
+            if ((1 + tempecc) * tempSMA >= max(objsma)) and ((1 - tempecc) * tempSMA <= (min(objsma) - smaThresHold)):
+                Isqualify = 1
 
-# 初始化向量和矩阵
-def init_vector_matrix(objNUm,tgtNum):
-    objNumVec = np.arange(1, objNUm + 1)  # 对象卫星的索引向量
-    tgtNumVec = np.arange(1, tgtNum + 1)  # 目标卫星的索引向量
+            for objIdx in range(objNum):
+                if tempCatID == ObjSat_list[objIdx]["CatID"]:
+                    Isqualify = 0
 
-    # 传播条件（如果为 0，则不传播，主要用于 Try-Catch 方法）
-    ObjPropCond = np.ones(objNUm, dtype=int)
-    TgtPropCond = np.ones(tgtNum, dtype=int)
+            if Isqualify:
+                iyr = int(l2[18:20])
+                dayofyear = float(l2[20:32])
+                iyear = 2000 + iyr if iyr < 50 else 1900 + iyr
+                jdtmp = calculate_jday(iyear, 1, 0, 0, 0, 0)
+                tlejd = jdtmp + dayofyear
 
-    # 初始化相对距离和速度的矩阵
-    NextRange = np.zeros((tgtNum, objNUm))
-    NextRangeRate = np.zeros((tgtNum, objNUm))
-    CurrentRange = np.zeros((tgtNum, objNUm))
-    CurrentRangeRate = np.zeros((tgtNum, objNUm))
+                if tlejd >= (ConjStartJulian - 365.0):
+                    if tgtNum == 0 or TgtSat[tgtNum - 1]["CatID"] != tempCatID:
+                        TgtSat.append({})
+                        tgtNum += 1
+                    TgtSat[tgtNum - 1]["CatID"] = tempCatID
+                    TgtSat[tgtNum - 1]["Name"] = tempSatName
+                    TgtSat[tgtNum - 1]["Line1"] = l1
+                    TgtSat[tgtNum - 1]["Line2"] = l2
+                    TgtSat[tgtNum - 1]["Line3"] = l3
 
-    # 碰撞分析标志矩阵
-    ConjFlag = np.ones((tgtNum, objNUm), dtype=int)
-    objConjFlag = np.ones(objNUm, dtype=int)
+                    ftgt.write(f"{l1[2:]}\n")
+                    ftgt.write(f"{l2}\n")
+                    ftgt.write(f"{l3}\n")
 
-    # 初始化碰撞概率和碰撞距离矩阵
-    ConjProb = np.zeros((tgtNum, objNUm))
-    ConjDistance = np.zeros((tgtNum, objNUm))
+            l1 = fid.readline().strip()
+    return TgtSat
 
-    # 初始化当前和下一个时间步长的卫星位置和速度
-    tgtpnow = np.zeros((tgtNum, 3))
-    tgtvnow = np.zeros((tgtNum, 3))
-    objpnow = np.zeros((objNUm, 3))
-    objvnow = np.zeros((objNUm, 3))
-    tgtpnext = np.zeros((tgtNum, 3))
-    tgtvnext = np.zeros((tgtNum, 3))
-    objpnext = np.zeros((objNUm, 3))
-    objvnext = np.zeros((objNUm, 3))
-
-    # ============================================================
-    # 设置对象之间的碰撞分析
-    if objNUm > 1:
-        icount = 0
-        objObjIdxVector = []
-        objTgtIdxVector = []
-
-        # 生成对象卫星对之间的索引
-        for obji in range(objNUm - 1):
-            for objj in range(obji + 1, objNUm):
-                objObjIdxVector.append(obji)
-                objTgtIdxVector.append(objj)
-                icount += 1
-
-        # 将索引转换为 numpy 数组
-        objObjIdxVector = np.array(objObjIdxVector)
-        objTgtIdxVector = np.array(objTgtIdxVector)
-
-        # 初始化对象之间的相对距离和速度变化率矩阵
-        objNextRange = np.zeros(len(objObjIdxVector))
-        objCurrentRange = np.zeros(len(objObjIdxVector))
-        objNextRangeRate = np.zeros(len(objObjIdxVector))
-        objCurrentRangeRate = np.zeros(len(objObjIdxVector))
-    return ObjPropCond,TgtPropCond,CurrentRange,ConjFlag,objCurrentRange
-
+if __name__ == "__main__":
+    ObjSat_list, objsma = generate_objSat_from_temptle(tempfile)
+    TgtSat_list = generate_tarSat_from_temptle(tempfile, ObjSat_list, objsma)
+    print("卫星数据已处理完毕。")
 
