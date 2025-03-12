@@ -133,7 +133,7 @@ if __name__ == "__main__":
     objNum, tgtNum = len(ObjSat_list), len(TgtSat_list)
     objSatDetail = ObjSatDetail(objNum)
     objSatDetail.calculate_objSat_detail(ObjSat_list, objNum, ConjStartJulian)
-    objSatDetail.compute_obj_relative_values(objNum)
+    objCurrentRange, objCurrentRangeRate = objSatDetail.compute_obj_relative_values(objNum)
     tgtSatDetail = TgtSatDetail(tgtNum, objNum)
     tgtSatDetail.calculate_tgtSat_detail(TgtSat_list, objNum, ConjStartJulian, objSatDetail.objpnow, objSatDetail.objvnow)
     print("=================Object Sat and Target Sat parameters' initialization completed!=========================")

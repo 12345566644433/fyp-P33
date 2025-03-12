@@ -7,7 +7,7 @@ from crash_analysis_prepare import *
 from readManeuverDataNewTLEFormat import *
 from dataestr import *
 from tools.date_trans import *
-    
+from tools.common_tools import *
 #initialize
 ConjStartDate = datetime.datetime(2024, 11, 15, 0, 0, 0)
 ConjEndDate = datetime.datetime(2024, 11, 17, 0, 0, 0)
@@ -18,7 +18,7 @@ ConjEndJulian = date_to_julian(ConjEndDate)
 download_tle()
 tempfile = 'temptle.tle'
 ObjSat_list, objsma = generate_objSat_from_temptle(tempfile)
-TgtSat_list = generate_tarSat_from_temptle(tempfile, ObjSat_list)
+TgtSat_list = generate_tarSat_from_temptle(tempfile, ObjSat_list, objsma)
 
 
 # 初始化用于卫星对象间联合碰撞分析变量
@@ -55,9 +55,11 @@ minDisThres = 5.0
 analysisThres = 3000  
 ConjRangeThres = 1000
 
+# data preparation
 timeVec=initialize_time_vector(ConjStartDate, ConjEndDate, PropTimeStep)
 objSatDetail = ObjSatDetail(objNum)
-objSatDetail.get_objSat_detail(ObjSat_list, objNum, ConjStartJulian)
-objSatDetail.compute_obj_relative_values(objNum)
+objSatDetail.calculate_objSat_detail(ObjSat_list, objNum, ConjStartJulian)
+objCurrentRange, objCurrentRangeRate = objSatDetail.compute_obj_relative_values(objNum)
 tgtSatDetail = TgtSatDetail(tgtNum, objNum)
-tgtSatDetail.get_tgtSat_detail(TgtSat_list, objNum, ConjStartJulian, objSatDetail.objpnow, objSatDetail.objvnow)
+tgtSatDetail.calculate_tgtSat_detail(TgtSat_list, objNum, ConjStartJulian, objSatDetail.objpnow, objSatDetail.objvnow)
+save_to_csv(objCurrentRange, objCurrentRangeRate, filename="obj_relative_values.csv")
