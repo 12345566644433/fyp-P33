@@ -31,11 +31,8 @@ class ObjSatDetail:
             self.satobj[ii]['initialjulian'] = self.satobj[ii]['sattle'].jdsatepoch
             self.satobj[ii]['offset'] = (ConjStartJulian - self.satobj[ii]['initialjulian']) * 1440 
 
-            # 初始化 SGP4 轨道参数
-            self.satobj[ii]['struc'] = self.satobj[ii]['sattle']
-
             # 计算卫星的位置和速度
-            _, p, v = self.satobj[ii]['struc'].sgp4(self.satobj[ii]['initialjulian'], self.satobj[ii]['offset'] / 1440.0)
+            _, p, v = self.satobj[ii]['sattle'].sgp4(self.satobj[ii]['initialjulian'], self.satobj[ii]['offset'] / 1440.0)
             self.objpnow[ii, :] = p
             self.objvnow[ii, :] = v
 
@@ -96,11 +93,9 @@ class TgtSatDetail:
             self.sattgt[ii]['initialjulian'] = self.sattgt[ii]['sattle'].jdsatepoch
             self.sattgt[ii]['offset'] = (ConjStartJulian - self.sattgt[ii]['initialjulian']) * 1440  # 时间偏移（分钟）
 
-            # 初始化 SGP4 轨道参数
-            self.sattgt[ii]['struc'] = self.sattgt[ii]['sattle']
 
             # 计算目标卫星的位置和速度
-            _, p, v = self.sattgt[ii]['struc'].sgp4(self.sattgt[ii]['initialjulian'], self.sattgt[ii]['offset'] / 1440.0)
+            _, p, v = self.sattgt[ii]['sattle'].sgp4(self.sattgt[ii]['initialjulian'], self.sattgt[ii]['offset'] / 1440.0)
             self.tgtpnow[ii, :] = p
             self.tgtvnow[ii, :] = v
 

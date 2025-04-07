@@ -4,7 +4,7 @@ from scipy.io import loadmat
 from download_TLEs_data import download_tle
 from setup_TLEfiles import *
 from crash_analysis_prepare import *
-from readManeuverDataNewTLEFormat import *
+from Propgation_analysis import *
 from dataestr import *
 from tools.date_trans import *
 from tools.common_tools import *
@@ -46,14 +46,6 @@ objpnext = [[0.0, 0.0, 0.0] for _ in range(objNum)]
 objvnext = [[0.0, 0.0, 0.0] for _ in range(objNum)]
 
 PropTimeStep = 5 
-thres = 0.001 / 60 
-maxcount = 50
-dxscalar = np.array([1, 1, 1]) / 60  
-tmin = np.zeros((tgtNum, objNum))
-tmax = np.ones((tgtNum, objNum)) * PropTimeStep
-minDisThres = 5.0  
-analysisThres = 3000  
-ConjRangeThres = 1000
 
 # data preparation
 timeVec=initialize_time_vector(ConjStartDate, ConjEndDate, PropTimeStep)
@@ -62,4 +54,12 @@ objSatDetail.calculate_objSat_detail(ObjSat_list, objNum, ConjStartJulian)
 objCurrentRange, objCurrentRangeRate = objSatDetail.compute_obj_relative_values(objNum)
 tgtSatDetail = TgtSatDetail(tgtNum, objNum)
 tgtSatDetail.calculate_tgtSat_detail(TgtSat_list, objNum, ConjStartJulian, objSatDetail.objpnow, objSatDetail.objvnow)
-save_to_csv(objCurrentRange, objCurrentRangeRate, filename="obj_relative_values.csv")
+
+analysis_threshold = 300.0  # 分析阈值（km）
+conj_range_threshold = 50.0  # 会合距离阈值（km）
+min_dis_threshold = 5.0  # 最小距离阈值（km）
+duration_days = 30  # 评估持续时间
+time_step_minutes = 5  # 时间步长
+report_file = "conjunction_report.csv"
+run_conjunction_assessment(objSatDetail, tgtSatDetail, ConjStartDate, duration_days, time_step_minutes,
+                              analysis_threshold, conj_range_threshold, min_dis_threshold, report_file)
