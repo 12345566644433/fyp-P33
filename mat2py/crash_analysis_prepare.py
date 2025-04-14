@@ -4,12 +4,7 @@ from tools.date_trans import calculate_jday
 from datetime import datetime
 from tools.sgp4 import *
 
-def initialize_time_vector(ConjStartDate: datetime, ConjEndDate: datetime, PropTimeStep: float):
-    totalelaps = (ConjEndDate - ConjStartDate).total_seconds() / 60
-    timeVec = np.arange(0, np.ceil(totalelaps / PropTimeStep) * PropTimeStep + PropTimeStep, PropTimeStep)
-    if timeVec[-1] > totalelaps:
-        timeVec[-1] = totalelaps
-    return timeVec
+
 
 class ObjSatDetail:
     def __init__(self, objNum):
@@ -24,6 +19,7 @@ class ObjSatDetail:
         for ii in range(objNum):
             # 解析 TLE 数据
             self.satobj[ii]['struc'] = {'satnum': ObjSat[ii]['CatID']}
+            self.satobj[ii]['Name'] = ObjSat[ii]['Name']
             self.satobj[ii]['sattle'] = Satrec.twoline2rv(ObjSat[ii]['Line2'], ObjSat[ii]['Line3'])
 
             # 计算初始时间和偏移
@@ -45,27 +41,7 @@ class ObjSatDetail:
             self.CurrentOr[ii, :] = or_
             self.CurrentOt[ii, :] = ot
             self.CurrentOh[ii, :] = oh
-
-    def compute_obj_relative_values(self, objNum):
-        if objNum > 1:
-            objp = self.objpnow.T 
-            objv = self.objvnow.T
-            objtemprange = []
-            objtemprangerate = []
-            for obji in range(objNum - 1):
-                # 计算相对位置和速度
-                objdp = objp[:, obji + 1:] - np.tile(objp[:, obji].reshape(-1, 1), (1, objNum - obji - 1))
-                objdv = objv[:, obji + 1:] - np.tile(objv[:, obji].reshape(-1, 1), (1, objNum - obji - 1))
-                # 计算相对距离
-                objtemprange.extend(np.linalg.norm(objdp, axis=0))
-                # 计算相对距离变化率
-                objtemprangerate.extend(np.sum(objdp * objdv, axis=0))
-            objCurrentRange = np.array(objtemprange)
-            objCurrentRangeRate = np.sign(np.array(objtemprangerate) / objCurrentRange)
-            return objCurrentRange, objCurrentRangeRate
-        else:
-            return None, None
-        
+   
 
 class TgtSatDetail:
     def __init__(self, tgtNum, objNum):     
@@ -128,7 +104,6 @@ if __name__ == "__main__":
     objNum, tgtNum = len(ObjSat_list), len(TgtSat_list)
     objSatDetail = ObjSatDetail(objNum)
     objSatDetail.calculate_objSat_detail(ObjSat_list, objNum, ConjStartJulian)
-    objCurrentRange, objCurrentRangeRate = objSatDetail.compute_obj_relative_values(objNum)
     tgtSatDetail = TgtSatDetail(tgtNum, objNum)
     tgtSatDetail.calculate_tgtSat_detail(TgtSat_list, objNum, ConjStartJulian, objSatDetail.objpnow, objSatDetail.objvnow)
     print("=================Object Sat and Target Sat parameters' initialization completed!=========================")
