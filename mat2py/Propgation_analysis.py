@@ -14,6 +14,18 @@ def initialize_time_vector(ConjStartDate: datetime, ConjEndDate: datetime, PropT
         timeVec[-1] = totalelaps
     return timeVec
 
+def satnamecheck(RcTgt, name, RcCube, cubesat_filename='cubesatname_data.txt'):
+    """检查卫星名称是否为立方体卫星"""
+    if not os.path.exists(cubesat_filename):
+        return RcTgt
+    with open(cubesat_filename, 'r') as f:
+        cubesat_list = f.read().splitlines()
+    for cube_name in cubesat_list:
+        if cube_name.lower() in name.lower():
+            return RcCube
+    return RcTgt
+
+
 def time4min(x, satobj_sattle, sattgt_sattle, ConjStartJulian):
     """计算最小距离的时间函数"""
     jdate = ConjStartJulian + x / 1440.0
@@ -32,10 +44,10 @@ def time4min(x, satobj_sattle, sattgt_sattle, ConjStartJulian):
     error_code_tgt, p_tgt, v_tgt = sattgt_sattle.sgp4(jd_day, jd_fraction)
     if error_code_tgt != 0:
         return float('inf')
-    dr = np.array(p_tgt) - np.array(p_obj)
-    dv = np.array(v_tgt) - np.array(v_obj)
-    dot_product = np.dot(dr, dv)
-    return dot_product
+    pobj_km = np.array(p_obj)
+    ptgt_km = np.array(p_tgt)
+    relative_dis = np.sum((pobj_km - ptgt_km)**2)
+    return relative_dis
 
 
 def myipm(x0, func, satobj_sattle, sattgt_sattle, tmin, tmax, ConjStartJulian):
@@ -103,50 +115,83 @@ def conjunction_output(satobj_sattle, sattgt_sattle, tca, ConjStartJulian):
         utstr = f"{int(hr):02d}:{int(minute):02d}:{sec_whole:02d}.{int(sec_frac*1000):03d}"
     except Exception as e:
         print(f"Error converting Julian Date {jdate_conj} to calendar date/time: {e}")
-        raise e
+        return None, None, None, None, None, None, None, None, None, None, None, None
     return min_distance, rel_speed, obj_since_epoch_days, tgt_since_epoch_days, cdstr, utstr, jdate_conj, p_obj, v_obj, p_tgt, v_tgt
     
 
+def collision_probability_simpson(pobj, ptgt, vobj, vtgt, Rc, AR, errorCov, hx, hy):
+    if errorCov.shape != (3, 3):
+         raise ValueError("errorCov must be 3*3")
+    pobj = np.asarray(pobj).reshape(3)
+    ptgt = np.asarray(ptgt).reshape(3)
+    vobj = np.asarray(vobj).reshape(3)
+    vtgt = np.asarray(vtgt).reshape(3)
 
-def compute_collision_probability(p_obj, p_tgt, v_obj, v_tgt, Rc):
-    dr = np.array(p_tgt) - np.array(p_obj)
-    dv = np.array(v_tgt) - np.array(v_obj)
-    
-    # 计算碰撞平面
-    rel_speed = np.linalg.norm(dv)
-    if rel_speed < 1e-10:
-        return 0
-    
-    v_unit = dv / rel_speed
-    if abs(v_unit[0]) < abs(v_unit[1]):
-        u1 = np.array([0, -v_unit[2], v_unit[1]])
+    vr = vobj - vtgt
+    vr_norm = np.linalg.norm(vr)
+
+    if vr_norm < np.finfo(float).eps:
+         print("warn: relative velocity is approching zero, collision probability is undefined")
+         return 0.0
+
+    jk = vr / vr_norm 
+    cross_prod_vtgt_vobj = np.cross(vtgt, vobj)
+    kk_norm = np.linalg.norm(cross_prod_vtgt_vobj)
+    if kk_norm < np.finfo(float).eps:
+        print("warning: relative velocity is parallel to the relative position, another method is needed")
+        relative_pos_vec = pobj - ptgt
+        kk_alt = np.cross(relative_pos_vec, vr)
+        kk_alt_norm = np.linalg.norm(kk_alt)
+        if kk_alt_norm < np.finfo(float).eps:
+             raise ValueError("unable to define the encounter plane")
+        kk = kk_alt / kk_alt_norm
     else:
-        u1 = np.array([-v_unit[2], 0, v_unit[0]])
-    
-    u1 = u1 / np.linalg.norm(u1)
-    u2 = np.cross(v_unit, u1)
-    
-    miss_vector = dr - np.dot(dr, v_unit) * v_unit
-    miss_distance = np.linalg.norm(miss_vector)
-    
-    if miss_distance > 5 * Rc:
-        return 0
-    
-    position_uncertainty = 0.1
-    
-    collision_prob = math.exp(-miss_distance**2 / (2 * position_uncertainty**2))
-    collision_prob = min(1.0, collision_prob) 
-    
-    return collision_prob
+        kk = cross_prod_vtgt_vobj / kk_norm
 
+    ik = np.cross(jk, kk) 
+    Mer = np.vstack((ik, jk, kk))
 
-def satnamecheck(RcTgt, name, cubesat_list, RcCube):
-    """检查卫星名称是否为立方体卫星"""
-    for cube_name in cubesat_list:
-        if cube_name.lower() in name.lower():
-            return RcCube
-    return RcTgt
+    relative_pos = pobj - ptgt
+    rRd = Mer @ relative_pos.reshape(3, 1)
 
+    xm = rRd[0, 0] 
+    ym = rRd[2, 0]
+    Pcov = Mer @ errorCov @ Mer.T
+    epsilon = 1e-15
+    sigx_sq = np.abs(Pcov[0, 0])
+    sigy_sq = np.abs(Pcov[2, 2])
+    sigx = np.sqrt(sigx_sq) + epsilon
+    sigy = np.sqrt(sigy_sq) + epsilon
+
+    Lx = Rc   
+    Ly = AR * Rc 
+    xd, xu = -Lx, Lx  
+    yd, yu = -Ly, Ly  
+    dx = (xu - xd) / hx 
+    dy = (yu - yd) / hy
+    nx_points = hx + 1
+    ny_points = hy + 1
+    nx_vec = np.linspace(xd, xu, nx_points)
+    ny_vec = np.linspace(yd, yu, ny_points)
+    x_grid, y_grid = np.meshgrid(nx_vec, ny_vec, indexing='ij') 
+    exponent = -0.5 * ( ((x_grid - xm) / sigx)**2 + ((y_grid - ym) / sigy)**2 )
+    pdf_values = np.exp(exponent)
+    wy = np.ones(ny_points)
+    wy[1:-1:2] = 4 
+    wy[2:-1:2] = 2 
+    wx = np.ones(nx_points)
+    wx[1:-1:2] = 4 
+    wx[2:-1:2] = 2
+
+    inner_integral = np.sum(pdf_values * wy.reshape(1, ny_points), axis=1)
+    total_integral_sum = np.sum(wx * inner_integral)
+    simpson_coeff = (dx / 3.0) * (dy / 3.0)
+    integral_result = simpson_coeff * total_integral_sum
+    normalization = 1.0 / (2 * np.pi * sigx * sigy)
+    P = normalization * integral_result
+    P = max(0.0, min(1.0, P))
+
+    return P
 
 def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, PropTimeStep, analysisThres, ConjRangeThres, minDisThres, reportfile):
     """主会合评估函数"""
@@ -201,7 +246,6 @@ def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, P
                 # 使用SGP4传播目标卫星
                 obj_sgp4_status, p, v = objSatDetail.satobj[objk]['sattle'].sgp4(jd_day, jd_minnutes)
                 if obj_sgp4_status:
-                    print(f"Error in SGP4 propagation for object satellite {objk}")
                     continue
                 objpnext[objk, :] = p
                 objvnext[objk, :] = v
@@ -241,16 +285,13 @@ def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, P
         NextRange = np.zeros_like(tgtSatDetail.CurrentRange)
         NextRangeRate = np.zeros_like(tgtSatDetail.CurrentRangeRate)
         
-        tgtNonComplied = []
         
         for tgtk in range(len(tgtSatDetail.sattgt)):
             if not TgtSatStatus[tgtk]:
                 continue
-            # try:
-                # 使用SGP4传播目标卫星
+            # 使用SGP4传播目标卫星
             tgt_sgp4_status, p, v = tgtSatDetail.sattgt[tgtk]['sattle'].sgp4(jd_day, jd_minnutes)
             if tgt_sgp4_status:
-                print(f"Error in SGP4 propagation for target satellite {tgtk}")
                 continue
             tgtpnext[tgtk, :] = p
             tgtvnext[tgtk, :] = v
@@ -325,8 +366,8 @@ def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, P
                     objSatDetail.satobj[objk]['sattle'], 
                     tgtSatDetail.sattgt[tgtk]['sattle'],
                     tout, ConjStartJulian)
-                    
-                
+                if min_distance is None:
+                    continue
                 ConjFlag[tgtk, objk] = 2 
                 
                 
@@ -339,13 +380,13 @@ def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, P
                     elif "DEB" in tgtSatDetail.sattgt[tgtk]['Name']:
                         RcTgt = RcDEB
                     else:
-                        RcTgt = RcSat
+                        RcTgt = satnamecheck(RcSat, tgtSatDetail.sattgt[tgtk]['Name'], RcCube)
+
                     
                     # 合并对象半径
                     Rc = RcTgt + RcObj[objk]
                     
-                    collision_prob = compute_collision_probability(
-                        p_obj, p_tgt, v_obj, v_tgt, Rc)
+                    collision_prob = collision_probability_simpson(p_obj, p_tgt, v_obj, v_tgt, Rc, 1.0, np.eye(3), 100, 100)
                     if collision_prob == 0:
                         continue
                     print(f'Date: {cdstr}\tTime: {utstr}\tMinimum Distance is {min_distance*1000:.4f} meters, '
@@ -364,10 +405,7 @@ def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, P
                                         tgtSatDetail.sattgt[tgtk]['struc']['satnum'],
                                         min_distance, rel_speed, obj_since_epoch_days, 
                                         tgt_since_epoch_days, collision_prob])
-            # except:
-            #     TgtSatStatus[tgtk] = 0
-            #     tgtNonComplied.append(tgtk)
-        
+                        
         objSatDetail.objpnow = objpnext
         objSatDetail.objvnow = objvnext
         objSatDetail.CurrentOr = NextOr

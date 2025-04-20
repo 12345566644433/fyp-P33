@@ -1,0 +1,176 @@
+SPACEBEE-
+FLOCK 
+LEMUR-
+CUTE-1 (CO-55)          
+CUBESAT XI-IV (CO-57)   
+CUBESAT XI-V            
+CUTE-1.7+APD II (CO-65) 
+AAUSAT-II               
+DELFI-C3 (DO-64)        
+SEEDS II (CO-66)        
+SWISSCUBE               
+BEESAT-1                
+ITUPSAT1                
+TISAT 1                 
+M-CUBED & EXP-1 PRIME   
+AEROCUBE 4.5A           
+AEROCUBE 4.5B           
+STRAND-1                
+SOMP                    
+BEESAT-3                
+BEESAT-2                
+NEE-01 PEGASO           
+ESTCUBE 1               
+POPACS 1                
+POPACS 2                
+POPACS 3                
+ZACUBE-1 (TSHEPISOSAT)  
+WNISAT-1                
+TRITON-1                
+DELFI-N3XT              
+GOMX-1                  
+CUBEBUG-2 (LO-74)       
+NEE-02 KRYSAOR          
+FUNCUBE-1 (AO-73)       
+UWE-3                   
+AEROCUBE 5A             
+AEROCUBE 5B             
+BRITE-CA1 (TORONTO)     
+DUCHIFAT-1              
+NANOSATC-BR1            
+QB50P1                  
+QB50P2                  
+PERSEUS-M2              
+PERSEUS-M1              
+POLYITAN-1              
+TIGRISAT                
+AEROCUBE 6A             
+AEROCUBE 6B             
+UKUBE-1                 
+BRITE-PL2 (HEWELIUSZ)   
+FIREBIRD 4              
+GRIFEX                  
+CP10 (EXOCUBE)          
+AEROCUBE 8A             
+AEROCUBE 8B             
+TIANWANG 1A (TW-1A)     
+EXACTVIEW 9             
+AEROCUBE 5C             
+AEROCUBE 7              
+ATHENOXAT 1             
+GALASSIA                
+VELOX-II                
+HORYU-4                 
+E-ST@R-II               
+AAUSAT 4                
+BEESAT-4                
+CANX-7                  
+RAVAN                   
+CELTEE 1                
+OPTICUBE 04             
+AEROCUBE 8D             
+AEROCUBE 8C             
+PROMETHEUS 2-1          
+PROMETHEUS 2-3          
+INS-1B                  
+BGUSAT                  
+DIDO-2                  
+PEASSS                  
+AL-FARABI 1             
+NAYIF-1 (EO-88)         
+UCLSAT                  
+LITUANICASAT-2          
+AALTO-1                 
+URSA MAIOR              
+COMPASS 2               
+DIAMOND RED             
+PEGASUS                 
+DIAMOND GREEN           
+DIAMOND BLUE            
+NUDTSAT                 
+SUCHAI                  
+SKCUBE                  
+VZLUSAT-1               
+ROBUSTA-1B              
+CICERO 6                
+D-SAT                   
+CORVUS BC2              
+CORVUS BC1              
+MIRATA                  
+MAKERSAT 0              
+AEROCUBE 7B (OCSD B)    
+AEROCUBE 7C (OCSD C)    
+CHEFSAT                 
+ASGARDIA 1              
+ISARA                   
+PROPCUBE 2 (FAUNA)      
+CORVUS BC3              
+MICROMAS-2A             
+CICERO 7                
+GOMX-4B                 
+GOMX-4A                 
+AEROCUBE 12A            
+AEROCUBE 12B            
+SURFSAT                 
+CP7 (DAVE)              
+ELFIN-B                 
+ELFIN-A                 
+CUBEBEL-1 (BSUSAT-1)    
+CICERO 10               
+IRVINE01                
+PROXIMA I               
+PROXIMA II              
+FACSAT-1                
+CENTAURI-2              
+INNOSAT-2               
+SIRION PATHFINDER-2     
+CORVUS BC4              
+MOVE-II                 
+SHIELDS 1               
+STF-1                   
+ZACUBE-2                
+LUME 1                  
+AOBA VELOX-IV           
+UNITE                   
+RAAVANA-1               
+UGUISU                  
+NEPALISAT-1             
+SPOOQY-1                
+MOVE-IIB                
+SONATE                  
+LUCKY-7                 
+BEESAT 9                
+JAISAT-1                
+KRAKSAT                 
+VCC A                   
+ENTRYSAT                
+VCC B                   
+DUCHIFAT-3              
+EYESAT-NANO             
+ORBITAL FACTORY 2 (OF-2)
+M2 PATHFINDER           
+NETSAT-4                
+NETSAT-3                
+NETSAT-1                
+NETSAT-2                
+SPOC                    
+BOBCAT-1                
+NEUTRON-1               
+1998-067RU              
+DESCENT                 
+SAI-1 NANOCONNECT-2     
+WARP-01                 
+RSP-01                  
+TAUSAT-1                
+TSURU                   
+STARS-EC                
+MAYA-2                  
+HIROGARI (OPUSAT-II)    
+GUARANISAT-1            
+SMOG-1                  
+MMSATS-1                
+BCCSAT-1                
+RAMSAT                  
+SOAR                    
+BD-28                   
+MIR-SAT 1               
