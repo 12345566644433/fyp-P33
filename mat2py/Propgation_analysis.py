@@ -29,7 +29,11 @@ def satnamecheck(RcTgt, name, RcCube, cubesat_filename='cubesatname_data.txt'):
 def time4min(x, satobj_sattle, sattgt_sattle, ConjStartJulian):
     """计算最小距离的时间函数"""
     jdate = ConjStartJulian + x / 1440.0
-    jd_day = int(jdate)
+    try:
+        jd_day = int(jdate)
+    except:
+        print(f"Invalid Julian date: {jdate}")
+        return float('inf')
     jd_fraction = jdate - jd_day
     if jd_fraction >= 1.0:
             jd_day += 1
@@ -118,6 +122,63 @@ def conjunction_output(satobj_sattle, sattgt_sattle, tca, ConjStartJulian):
         return None, None, None, None, None, None, None, None, None, None, None, None
     return min_distance, rel_speed, obj_since_epoch_days, tgt_since_epoch_days, cdstr, utstr, jdate_conj, p_obj, v_obj, p_tgt, v_tgt
     
+def compute_pos_cov(pos_km, vel_km_s, time_since_epoch_days, pcov_offset_km2, leotlecov_coeffs):
+    pos_km = np.asarray(pos_km).reshape(3)
+    vel_km_s = np.asarray(vel_km_s).reshape(3)
+    pcov_offset_km2 = np.asarray(pcov_offset_km2).reshape(3)
+
+    if leotlecov_coeffs.shape[0] != 3:
+        raise ValueError("leotlecov_coeffs must have 3 rows")
+
+    sig_v = np.polyval(leotlecov_coeffs[0, :], time_since_epoch_days)
+    sig_n = np.polyval(leotlecov_coeffs[1, :], time_since_epoch_days)
+    sig_r = np.polyval(leotlecov_coeffs[2, :], time_since_epoch_days)
+
+    var_v = sig_v**2
+    var_n = sig_n**2
+    var_r = sig_r**2
+
+    norm_vel = np.linalg.norm(vel_km_s)
+    norm_pos = np.linalg.norm(pos_km)
+
+    if norm_vel < np.finfo(float).eps or norm_pos < np.finfo(float).eps:
+        raise ValueError("position and velocity vectors cannot be zero")
+
+    vnc_i = vel_km_s / norm_vel
+    h_vec = np.cross(pos_km, vel_km_s)
+    norm_h = np.linalg.norm(h_vec)
+    if norm_h < np.finfo(float).eps:
+         raise ValueError("position and velocity vectors are parallel")
+    vnc_n = h_vec / norm_h
+    vnc_c = np.cross(vnc_i, vnc_n)
+
+    rot_mat_vnc_to_cartesian = np.vstack((vnc_i, vnc_n, vnc_c)).T
+    cov_vnc = np.diag([var_v, var_n, var_r])
+    cov_cartesian = rot_mat_vnc_to_cartesian @ cov_vnc @ rot_mat_vnc_to_cartesian.T
+    cov_cartesian += np.diag(pcov_offset_km2)
+
+    return cov_cartesian
+
+def calculate_combined_error_covariance(
+        pos_obj_km, vel_obj_km_s, time_obj_days, pcov_offset_obj_km2,
+        pos_tgt_km, vel_tgt_km_s, time_tgt_days):
+
+    leotlecov_coeffs = np.array([
+    [0.000130506662256288, -0.00660267348262973, 0.675201587247618, 0.319582814409902, 4.28641693034372],
+    [0.0, 0.0, 0.0, 0.0, 2.82947383703629],
+    [0.000289322335966444, -0.00528484813631999, 0.0346960233226241, -0.0102440383785667, 0.240391752770729]])
+
+    cov_obj = compute_pos_cov(pos_obj_km, vel_obj_km_s, time_obj_days,
+                              pcov_offset_obj_km2, leotlecov_coeffs)
+
+    pcov_offset_tgt_km2 = np.zeros(3)
+    cov_tgt = compute_pos_cov(pos_tgt_km, vel_tgt_km_s, time_tgt_days,
+                              pcov_offset_tgt_km2, leotlecov_coeffs)
+
+    error_cov = cov_obj + cov_tgt
+    return error_cov
+
+
 
 def collision_probability_simpson(pobj, ptgt, vobj, vtgt, Rc, AR, errorCov, hx, hy):
     if errorCov.shape != (3, 3):
@@ -385,8 +446,11 @@ def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, P
                     
                     # 合并对象半径
                     Rc = RcTgt + RcObj[objk]
-                    
-                    collision_prob = collision_probability_simpson(p_obj, p_tgt, v_obj, v_tgt, Rc, 1.0, np.eye(3), 100, 100)
+                    pcov_offset_km2 = np.array([0.5, 0.2, 0.1])
+                    err_cov = calculate_combined_error_covariance(
+                        p_obj, v_obj, obj_since_epoch_days, pcov_offset_km2,
+                        p_tgt, v_tgt, tgt_since_epoch_days)
+                    collision_prob = collision_probability_simpson(p_obj, p_tgt, v_obj, v_tgt, Rc, 1.0, err_cov, 100, 100)
                     if collision_prob == 0:
                         continue
                     print(f'Date: {cdstr}\tTime: {utstr}\tMinimum Distance is {min_distance*1000:.4f} meters, '
@@ -395,7 +459,6 @@ def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, P
                             f'Obj TLE since: {obj_since_epoch_days:.3f} days and '
                             f'Tgt TLE since: {tgt_since_epoch_days:.3f} days, '
                             f'Collision Probability: {collision_prob:.6e}')
-                    
                     with open(reportfile, 'a', newline='') as f:
                         writer = csv.writer(f)
                         writer.writerow([cdstr, utstr, 

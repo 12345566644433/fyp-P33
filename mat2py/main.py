@@ -34,7 +34,7 @@ tgtSatDetail.calculate_tgtSat_detail(TgtSat_list, objNum, ConjStartJulian, objSa
 
 analysis_threshold = 3000  # 分析阈值（km）
 conj_range_threshold = 1000  # 会合距离阈值（km）
-min_dis_threshold = 5  # 最小距离阈值（km）
+min_dis_threshold = 10  # 最小距离阈值（km）
 duration_days = 30  # 评估持续时间
 time_step_minutes = 5  # 时间步长
 report_file = "conjunction_report.csv"
