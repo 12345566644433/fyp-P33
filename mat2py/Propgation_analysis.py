@@ -32,7 +32,6 @@ def time4min(x, satobj_sattle, sattgt_sattle, ConjStartJulian):
     try:
         jd_day = int(jdate)
     except:
-        print(f"Invalid Julian date: {jdate}")
         return float('inf')
     jd_fraction = jdate - jd_day
     if jd_fraction >= 1.0:
@@ -64,7 +63,8 @@ def myipm(x0, func, satobj_sattle, sattgt_sattle, tmin, tmax, ConjStartJulian):
     dx = dxscalar
     while count < maxcount:
         f = func(x, satobj_sattle, sattgt_sattle,ConjStartJulian)
-        
+        if f == float('inf'):
+            return None
         if abs(f) < thres:
             return x
         fp = (func(x + dx, satobj_sattle, sattgt_sattle, ConjStartJulian) - f) / dx
@@ -119,7 +119,7 @@ def conjunction_output(satobj_sattle, sattgt_sattle, tca, ConjStartJulian):
         utstr = f"{int(hr):02d}:{int(minute):02d}:{sec_whole:02d}.{int(sec_frac*1000):03d}"
     except Exception as e:
         print(f"Error converting Julian Date {jdate_conj} to calendar date/time: {e}")
-        return None, None, None, None, None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None, None, None, None
     return min_distance, rel_speed, obj_since_epoch_days, tgt_since_epoch_days, cdstr, utstr, jdate_conj, p_obj, v_obj, p_tgt, v_tgt
     
 def compute_pos_cov(pos_km, vel_km_s, time_since_epoch_days, pcov_offset_km2, leotlecov_coeffs):
@@ -421,7 +421,8 @@ def conjunction_assessment(objSatDetail, tgtSatDetail, timeVec, ConjStartDate, P
                             objSatDetail.satobj[objk]['sattle'], 
                             tgtSatDetail.sattgt[tgtk]['sattle'],
                             tmin, tmax, ConjStartJulian)
-                
+                if tout is None:
+                    continue
                 # 计算会合输出
                 min_distance, rel_speed, obj_since_epoch_days, tgt_since_epoch_days, cdstr, utstr, jdate_conj, p_obj, v_obj, p_tgt, v_tgt = conjunction_output(
                     objSatDetail.satobj[objk]['sattle'], 

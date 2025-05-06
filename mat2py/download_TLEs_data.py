@@ -24,13 +24,14 @@ def download_tle():#下载实时卫星数据
     }
 
     with requests.Session() as session:
-        login_response = session.post(login_url, data=payload)
+        print("正在登录 Space-Track...")
+        login_response = session.post(login_url, data=payload, verify=False)
         if login_response.status_code != 200:
             print("登录失败！请检查用户名和密码。")
             return
         
         print("登录成功，正在下载 TLE 数据...")
-        tle_response = session.get(api_url)
+        tle_response = session.get(api_url, verify=False)
         
         if tle_response.status_code == 200:
             with open('temptle.tle', 'w') as f:
